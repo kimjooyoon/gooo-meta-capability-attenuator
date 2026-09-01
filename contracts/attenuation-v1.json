@@ -1,0 +1,54 @@
+{
+  "schema": "gooo/meta-capability-attenuator/contract/v1",
+  "source_schema": "gooo/meta-capability-attenuator/semantic-ir/v1",
+  "go_toolchain": "go1.27.0",
+  "precedence": ["REFUTED", "UNKNOWN", "CLOSED"],
+  "capabilities": [
+    "read:source",
+    "read:reflection",
+    "write:caller-owned-output",
+    "network:outbound",
+    "write:repository"
+  ],
+  "fixed_scenarios": [
+    "case-01-read-only-reflection-attenuation",
+    "case-02-caller-owned-output-generation",
+    "case-03-capability-removal",
+    "case-04-deterministic-replay",
+    "case-05-undeclared-repository-write",
+    "case-06-cross-stage-network-amplification",
+    "case-07-missing-capability-origin",
+    "case-08-dynamic-call-target"
+  ],
+  "required_gooo_activities": [
+    "DeclareStageCapabilities",
+    "BindCapabilityOrigin",
+    "ProjectGeneratedCapabilities",
+    "CompareCapabilityLattice",
+    "PreserveAmplificationCounterexample",
+    "EmitAttenuationReceipt"
+  ],
+  "inventory_exclusions": [
+    "root README.md",
+    ".git",
+    "caller-owned temp/output",
+    "cache",
+    "vendor",
+    "toolchain internals"
+  ],
+  "authority": {
+    "repository_writes": 0,
+    "source_mutations": 0,
+    "commit_authority": 0,
+    "push_authority": 0,
+    "merge_authority": 0,
+    "release_mutation": 0,
+    "local_test_executions": 0
+  },
+  "artifacts": [
+    "capability-graph.json",
+    "attenuation-receipt.json",
+    "violation.ndjson",
+    "attenuation-report.md"
+  ]
+}
