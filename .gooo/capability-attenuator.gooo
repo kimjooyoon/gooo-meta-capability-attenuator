@@ -1,0 +1,28 @@
+language Gooo 1.0
+
+module gooo.meta.capability.attenuator
+
+# The .gooo activity graph owns the semantics. Go may only lower this graph
+# into an evaluator for inert semantic IR fixtures.
+activity DeclareStageCapabilities(stage, capability_set) -> declared_capability_set
+activity BindCapabilityOrigin(stage, capability, origin_proof) -> bound_capability
+activity ProjectGeneratedCapabilities(stage_edge, generated_ir) -> observed_capability_set
+activity CompareCapabilityLattice(stage_edge, declared, observed) -> lattice_receipt
+activity PreserveAmplificationCounterexample(stage_edge, counterexample) -> violation_record
+activity EmitAttenuationReceipt(graph, lattice_receipt, violation_record) -> receipt
+
+capability_lattice {
+  read:source
+  read:reflection
+  write:caller-owned-output
+  network:outbound
+  write:repository
+}
+
+stage_edge_policy {
+  generated_capabilities ⊆ declared_capabilities
+  origin_proof_required = true
+  dynamic_call_target = UNKNOWN
+}
+
+resolution_precedence = [REFUTED, UNKNOWN, CLOSED]

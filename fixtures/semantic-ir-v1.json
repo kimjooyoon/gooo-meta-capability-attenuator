@@ -1,0 +1,265 @@
+{
+  "schema": "gooo/meta-capability-attenuator/semantic-ir/v1",
+  "stage_edges": [
+    {"id": "edge-01", "from": "reflect-stage", "to": "generated-reflect-stage"},
+    {"id": "edge-02", "from": "output-stage", "to": "generated-output-stage"},
+    {"id": "edge-03", "from": "capability-stage", "to": "generated-reduced-stage"},
+    {"id": "edge-04", "from": "replay-stage", "to": "generated-replay-stage"},
+    {"id": "edge-05", "from": "repository-stage", "to": "generated-repository-stage"},
+    {"id": "edge-06", "from": "network-stage", "to": "generated-network-stage"},
+    {"id": "edge-07", "from": "origin-stage", "to": "generated-origin-stage"},
+    {"id": "edge-08", "from": "dynamic-stage", "to": "generated-dynamic-stage"}
+  ],
+  "scenarios": [
+    {
+      "id": "case-01-read-only-reflection-attenuation",
+      "name": "read-only reflection attenuation",
+      "purpose": "A reflection read is removed from generated code.",
+      "edge": "edge-01",
+      "declared": ["read:reflection"],
+      "observed": [],
+      "operations": [
+        {
+          "id": "op-01",
+          "capability": "read:reflection",
+          "action": "reflect.read",
+          "origin": "direct",
+          "origin_proof": {
+            "kind": "direct-declaration",
+            "declared_stage": "reflect-stage",
+            "source_activity": "DeclareStageCapabilities",
+            "evidence": "declared read:reflection on reflect-stage"
+          }
+        }
+      ],
+      "expected_state": "CLOSED",
+      "expected_reason": "LATTICE_ATTENUATED",
+      "improvement": {
+        "before": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 1, "observed_count": 0, "amplified_count": 0, "attenuated_count": 1},
+        "before_identity": {"scenario": "case-01-read-only-reflection-attenuation", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-01-read-only-reflection-attenuation", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"}
+      }
+    },
+    {
+      "id": "case-02-caller-owned-output-generation",
+      "name": "caller-owned output generation",
+      "purpose": "Generated output remains within the caller-owned output capability.",
+      "edge": "edge-02",
+      "declared": ["write:caller-owned-output"],
+      "observed": ["write:caller-owned-output"],
+      "operations": [
+        {
+          "id": "op-02",
+          "capability": "write:caller-owned-output",
+          "action": "emit.caller_output",
+          "origin": "caller-owned",
+          "origin_proof": {
+            "kind": "caller-owned-output",
+            "declared_stage": "output-stage",
+            "source_activity": "BindCapabilityOrigin",
+            "evidence": "output root supplied by caller"
+          }
+        }
+      ],
+      "expected_state": "CLOSED",
+      "expected_reason": "LATTICE_PRESERVED",
+      "improvement": {
+        "before": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "before_identity": {"scenario": "case-02-caller-owned-output-generation", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-02-caller-owned-output-generation", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"}
+      }
+    },
+    {
+      "id": "case-03-capability-removal",
+      "name": "capability removal",
+      "purpose": "Source reading is removed while caller-owned output remains.",
+      "edge": "edge-03",
+      "declared": ["read:source", "write:caller-owned-output"],
+      "observed": ["write:caller-owned-output"],
+      "operations": [
+        {
+          "id": "op-03",
+          "capability": "write:caller-owned-output",
+          "action": "emit.caller_output",
+          "origin": "caller-owned",
+          "origin_proof": {
+            "kind": "caller-owned-output",
+            "declared_stage": "capability-stage",
+            "source_activity": "BindCapabilityOrigin",
+            "evidence": "output root supplied by caller"
+          }
+        }
+      ],
+      "expected_state": "CLOSED",
+      "expected_reason": "LATTICE_ATTENUATED",
+      "improvement": {
+        "before": {"declared_count": 2, "observed_count": 2, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 2, "observed_count": 1, "amplified_count": 0, "attenuated_count": 1},
+        "before_identity": {"scenario": "case-03-capability-removal", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-03-capability-removal", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"}
+      }
+    },
+    {
+      "id": "case-04-deterministic-replay",
+      "name": "deterministic replay",
+      "purpose": "The same staged semantic IR produces the same lattice receipt.",
+      "edge": "edge-04",
+      "declared": ["read:source"],
+      "observed": ["read:source"],
+      "operations": [
+        {
+          "id": "op-04",
+          "capability": "read:source",
+          "action": "source.read",
+          "origin": "direct",
+          "origin_proof": {
+            "kind": "direct-declaration",
+            "declared_stage": "replay-stage",
+            "source_activity": "DeclareStageCapabilities",
+            "evidence": "declared read:source on replay-stage"
+          }
+        }
+      ],
+      "replay": true,
+      "expected_state": "CLOSED",
+      "expected_reason": "LATTICE_PRESERVED",
+      "improvement": {
+        "before": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "before_identity": {"scenario": "case-04-deterministic-replay", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-04-deterministic-replay", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"}
+      }
+    },
+    {
+      "id": "case-05-undeclared-repository-write",
+      "name": "undeclared repository write",
+      "purpose": "A generated repository mutation is a capability amplification.",
+      "edge": "edge-05",
+      "declared": [],
+      "observed": ["write:repository"],
+      "operations": [
+        {
+          "id": "op-05",
+          "capability": "write:repository",
+          "action": "repository.write",
+          "origin": "direct",
+          "origin_proof": {
+            "kind": "direct-declaration",
+            "declared_stage": "repository-stage",
+            "source_activity": "ProjectGeneratedCapabilities",
+            "evidence": "generated IR requests repository mutation"
+          }
+        }
+      ],
+      "expected_state": "REFUTED",
+      "expected_reason": "UNDECLARED_REPOSITORY_WRITE",
+      "improvement": {
+        "before": {"declared_count": 0, "observed_count": 0, "amplified_count": 0, "attenuated_count": 0},
+        "after": null,
+        "before_identity": {"scenario": "case-05-undeclared-repository-write", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": null
+      }
+    },
+    {
+      "id": "case-06-cross-stage-network-amplification",
+      "name": "cross-stage network amplification",
+      "purpose": "A network capability arriving from another stage cannot be inherited silently.",
+      "edge": "edge-06",
+      "declared": ["read:source"],
+      "observed": ["read:source", "network:outbound"],
+      "operations": [
+        {
+          "id": "op-06",
+          "capability": "read:source",
+          "action": "source.read",
+          "origin": "direct",
+          "origin_proof": {
+            "kind": "direct-declaration",
+            "declared_stage": "network-stage",
+            "source_activity": "DeclareStageCapabilities",
+            "evidence": "declared read:source on network-stage"
+          }
+        },
+        {
+          "id": "op-06-network",
+          "capability": "network:outbound",
+          "action": "network.egress",
+          "origin": "inherited",
+          "origin_stage": "upstream-network-stage",
+          "cross_stage": true,
+          "origin_proof": {
+            "kind": "cross-stage-inheritance",
+            "declared_stage": "upstream-network-stage",
+            "source_activity": "BindCapabilityOrigin",
+            "evidence": "network origin is outside edge-06 declaration"
+          }
+        }
+      ],
+      "expected_state": "REFUTED",
+      "expected_reason": "CROSS_STAGE_NETWORK_AMPLIFICATION",
+      "improvement": {
+        "before": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 1, "observed_count": 2, "amplified_count": 1, "attenuated_count": 0},
+        "before_identity": {"scenario": "case-06-cross-stage-network-amplification", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-06-cross-stage-network-amplification", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "different-runner"}
+      }
+    },
+    {
+      "id": "case-07-missing-capability-origin",
+      "name": "missing capability origin",
+      "purpose": "A direct capability without origin proof remains UNKNOWN.",
+      "edge": "edge-07",
+      "declared": ["write:caller-owned-output"],
+      "observed": ["write:caller-owned-output"],
+      "operations": [
+        {
+          "id": "op-07",
+          "capability": "write:caller-owned-output",
+          "action": "emit.caller_output",
+          "origin": "missing"
+        }
+      ],
+      "expected_state": "UNKNOWN",
+      "expected_reason": "DIRECT_MISSING",
+      "improvement": {
+        "before": null,
+        "after": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "before_identity": null,
+        "after_identity": {"scenario": "case-07-missing-capability-origin", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"}
+      }
+    },
+    {
+      "id": "case-08-dynamic-call-target",
+      "name": "dynamic call target",
+      "purpose": "A dynamic call target prevents a closed origin proof.",
+      "edge": "edge-08",
+      "declared": ["read:reflection"],
+      "observed": ["read:reflection"],
+      "operations": [
+        {
+          "id": "op-08",
+          "capability": "read:reflection",
+          "action": "dynamic.invoke",
+          "origin": "ambiguous",
+          "call_target": "dynamic",
+          "origin_proof": {
+            "kind": "dynamic-call-target",
+            "declared_stage": "dynamic-stage",
+            "source_activity": "BindCapabilityOrigin",
+            "evidence": "call target is not statically resolved"
+          }
+        }
+      ],
+      "expected_state": "UNKNOWN",
+      "expected_reason": "DYNAMIC_CALL_TARGET_AMBIGUOUS",
+      "improvement": {
+        "before": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "after": {"declared_count": 1, "observed_count": 1, "amplified_count": 0, "attenuated_count": 0},
+        "before_identity": {"scenario": "case-08-dynamic-call-target", "source": "SELF", "contract": "SELF", "toolchain": "SELF", "runner": "SELF"},
+        "after_identity": {"scenario": "case-08-dynamic-call-target", "source": "SELF", "contract": "different-contract", "toolchain": "SELF", "runner": "SELF"}
+      }
+    }
+  ]
+}

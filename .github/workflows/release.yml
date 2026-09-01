@@ -1,0 +1,79 @@
+name: Annotated immutable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated tag to release
+        required: true
+        type: string
+      commit:
+        description: Exact commit targeted by the annotated tag
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.0'
+          cache: false
+      - name: Verify exact annotated tag target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: bash scripts/verify-release-boundary.sh tag "$RELEASE_TAG" "$RELEASE_COMMIT"
+      - name: Verify Go 1.27 and build evaluator
+        run: |
+          test "$(go env GOVERSION)" = "go1.27.0"
+          go vet ./...
+          go test ./...
+          go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
+      - name: Generate CI evidence asset
+        run: bash scripts/conformance.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator"
+      - name: Package evidence
+        id: package
+        run: |
+          asset="$RUNNER_TEMP/gooo-meta-capability-attenuator-${{ inputs.tag }}-ci-evidence.tgz"
+          tar -czf "$asset" -C "$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence" .
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+      - name: Create draft release with standard GitHub token
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: gh release create "$RELEASE_TAG" --draft --verify-tag --title "$RELEASE_TAG" --notes "Immutable release for $RELEASE_TAG at $RELEASE_COMMIT."
+      - name: Upload evidence asset to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release upload "$RELEASE_TAG" "${{ steps.package.outputs.asset }}"
+      - name: Publish release once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --draft=false
+      - name: Verify public immutable release and asset digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if bash scripts/verify-release-boundary.sh release "$RELEASE_TAG" "$RELEASE_COMMIT"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
