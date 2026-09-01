@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bin=${1:?usage: conformance.sh PATH_TO_BINARY}
+bin=${1:?usage: conformance.sh PATH_TO_BINARY [METRICS_DIRECTORY]}
 repo_root=${GITHUB_WORKSPACE:-$(pwd)}
+metrics_dir=${2:-}
 work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/gooo-meta-capability-attenuator.XXXXXX")
 trap 'rm -rf "$work"' EXIT
+
+metric_value() {
+  local phase=$1
+  local field=$2
+  if [ -z "$metrics_dir" ] || [ ! -f "$metrics_dir/$phase.metrics" ]; then
+    echo 0
+    return
+  fi
+  value=$(awk -F= -v key="$field" '$1 == key {print $2}' "$metrics_dir/$phase.metrics")
+  echo "${value:-0}"
+}
 
 run_evaluation() {
   local out=$1
@@ -19,7 +31,17 @@ run_evaluation() {
     --toolchain go1.27.0 \
     --runner github-actions-ubuntu-latest \
     --ci-wall-ms "$wall_ms" \
-    --ci-peak-rss-kib "$peak_rss_kib"
+    --ci-peak-rss-kib "$peak_rss_kib" \
+    --compile-wall-ms "$(metric_value compile wall_ms)" \
+    --compile-peak-rss-kib "$(metric_value compile peak_rss_kib)" \
+    --build-wall-ms "$(metric_value build wall_ms)" \
+    --build-peak-rss-kib "$(metric_value build peak_rss_kib)" \
+    --test-wall-ms "$(metric_value test wall_ms)" \
+    --test-peak-rss-kib "$(metric_value test peak_rss_kib)" \
+    --conformance-wall-ms "$wall_ms" \
+    --conformance-peak-rss-kib "$peak_rss_kib" \
+    --integration-wall-ms "$(metric_value integration wall_ms)" \
+    --integration-peak-rss-kib "$(metric_value integration peak_rss_kib)"
 }
 
 before=$(git -C "$repo_root" status --porcelain=v1 -z --untracked-files=all | sha256sum | awk '{print $1}')
@@ -55,13 +77,23 @@ jq -e '
   .precedence == ["REFUTED", "UNKNOWN", "CLOSED"] and
   .summary == {total:8,closed:4,unknown:2,refuted:2} and
   .improvement == {total:8,closed:4,unknown:4} and
+  .tests == {total:8,selected:8,executed:8,reused:0,failed:0,unknown:0} and
+  .local_execution == {go_test:0,go_build:0,go_vet:0,conformance:0,integration:0} and
   .artifacts.count == 4 and
   .artifacts.files == ["capability-graph.json","attenuation-receipt.json","violation.ndjson","attenuation-report.md"] and
   .authority == {repository_writes:0,source_mutations:0,commit_authority:0,push_authority:0,merge_authority:0,release_mutation:0,local_test_executions:0} and
   .metrics.capability_kinds == 5 and
   .metrics.stage_edges == 8 and
-  .metrics.ci.wall_ms > 0 and
-  .metrics.ci.peak_rss_kib > 0 and
+  .metrics.measurements.compile_wall_ms > 0 and
+  .metrics.measurements.compile_peak_rss_kib > 0 and
+  .metrics.measurements.build_wall_ms > 0 and
+  .metrics.measurements.build_peak_rss_kib > 0 and
+  .metrics.measurements.test_wall_ms > 0 and
+  .metrics.measurements.test_peak_rss_kib > 0 and
+  .metrics.measurements.conformance_wall_ms > 0 and
+  .metrics.measurements.conformance_peak_rss_kib > 0 and
+  .metrics.measurements.integration_wall_ms >= 0 and
+  .metrics.measurements.integration_peak_rss_kib >= 0 and
   .metrics.inventory.root_readme_excluded == true and
   .metrics.inventory.files > 0 and
   .metrics.inventory.directories > 0 and

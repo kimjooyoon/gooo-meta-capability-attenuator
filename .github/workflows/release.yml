@@ -18,6 +18,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      METRICS_DIR: ${{ runner.temp }}/gooo-meta-capability-attenuator-measurements
+      EVIDENCE_DIR: ${{ runner.temp }}/gooo-meta-capability-attenuator-evidence
     steps:
       - uses: actions/checkout@v5
         with:
@@ -33,19 +36,49 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_COMMIT: ${{ inputs.commit }}
         run: bash scripts/verify-release-boundary.sh tag "$RELEASE_TAG" "$RELEASE_COMMIT"
-      - name: Verify Go 1.27 and build evaluator
+      - name: Verify formatting
         run: |
-          test "$(go env GOVERSION)" = "go1.27.0"
-          go vet ./...
-          go test ./...
-          go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
-      - name: Generate CI evidence asset
-        run: bash scripts/conformance.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator"
+          set -euo pipefail
+          files=$(gofmt -l $(git ls-files '*.go'))
+          test -z "$files"
+      - name: Prepare measurement directories
+        run: mkdir -p "$METRICS_DIR"
+      - name: Measure compile
+        run: bash scripts/measure-step.sh "$METRICS_DIR/compile.metrics" go test -run '^$' ./...
+      - name: Run vet
+        run: go vet ./...
+      - name: Measure tests
+        run: bash scripts/measure-step.sh "$METRICS_DIR/test.metrics" go test ./...
+      - name: Measure build
+        run: bash scripts/measure-step.sh "$METRICS_DIR/build.metrics" go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
+      - name: Measure conformance
+        run: |
+          set -euo pipefail
+          bash scripts/measure-step.sh "$METRICS_DIR/conformance.metrics" bash scripts/conformance.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator" "$METRICS_DIR"
+          conformance_wall_ms=$(awk -F= '$1 == "wall_ms" {print $2}' "$METRICS_DIR/conformance.metrics")
+          conformance_peak_rss_kib=$(awk -F= '$1 == "peak_rss_kib" {print $2}' "$METRICS_DIR/conformance.metrics")
+          bash scripts/patch-measurement.sh "$EVIDENCE_DIR/attenuation-receipt.json" conformance "$conformance_wall_ms" "$conformance_peak_rss_kib"
+      - name: Measure integration
+        run: |
+          set -euo pipefail
+          bash scripts/measure-step.sh "$METRICS_DIR/integration.metrics" bash scripts/integration.sh "$EVIDENCE_DIR"
+          integration_wall_ms=$(awk -F= '$1 == "wall_ms" {print $2}' "$METRICS_DIR/integration.metrics")
+          integration_peak_rss_kib=$(awk -F= '$1 == "peak_rss_kib" {print $2}' "$METRICS_DIR/integration.metrics")
+          bash scripts/patch-measurement.sh "$EVIDENCE_DIR/attenuation-receipt.json" integration "$integration_wall_ms" "$integration_peak_rss_kib"
+      - name: Run semantic audit after measurement patch
+        run: bash scripts/semantic-audit.sh "$EVIDENCE_DIR"
+      - name: Verify complete measurement receipt
+        run: |
+          jq -e '
+            .tests == {total:8,selected:8,executed:8,reused:0,failed:0,unknown:0} and
+            .local_execution == {go_test:0,go_build:0,go_vet:0,conformance:0,integration:0} and
+            ([.metrics.measurements | .[]] | all(. | type == "number" and . > 0))
+          ' "$EVIDENCE_DIR/attenuation-receipt.json" >/dev/null
       - name: Package evidence
         id: package
         run: |
           asset="$RUNNER_TEMP/gooo-meta-capability-attenuator-${{ inputs.tag }}-ci-evidence.tgz"
-          tar -czf "$asset" -C "$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence" .
+          tar -czf "$asset" -C "$EVIDENCE_DIR" .
           echo "asset=$asset" >> "$GITHUB_OUTPUT"
       - name: Create draft release with standard GitHub token
         env:

@@ -37,7 +37,15 @@ The evaluator writes only these caller-owned artifacts:
 - `attenuation-report.md`
 
 CI is the validation authority and runs Go 1.27 formatting, vet, tests, build,
-semantic conformance, integration, and semantic audit. The release workflow
+semantic conformance, integration, and semantic audit. Each compile, build,
+test, conformance, and integration step records its own wall time and peak RSS
+as ten integer fields in the receipt. Fixed-scenario test accounting is kept
+separate from semantic decisions: `tests` is always total=8, selected=8,
+executed=8, reused=0, failed=0, unknown=0, while the scenario summary retains
+four CLOSED, two UNKNOWN, and two REFUTED decisions. Local execution fields
+for Go test/build/vet/conformance/integration are explicit zeroes.
+
+The release workflow
 creates a draft with the standard `GITHUB_TOKEN`, uploads the CI evidence,
 publishes once, and verifies the public release API reports `immutable=true`
 and a `sha256:` digest for every asset. Existing tags and releases are never
