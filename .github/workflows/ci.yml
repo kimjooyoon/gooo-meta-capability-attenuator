@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      METRICS_DIR: ${{ runner.temp }}/gooo-meta-capability-attenuator-measurements
-      EVIDENCE_DIR: ${{ runner.temp }}/gooo-meta-capability-attenuator-evidence
     steps:
       - uses: actions/checkout@v5
         with:
@@ -35,7 +33,10 @@ jobs:
           files=$(gofmt -l $(git ls-files '*.go'))
           test -z "$files"
       - name: Prepare measurement directories
-        run: mkdir -p "$METRICS_DIR"
+        run: |
+          echo "METRICS_DIR=$RUNNER_TEMP/gooo-meta-capability-attenuator-measurements" >> "$GITHUB_ENV"
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gooo-meta-capability-attenuator-measurements"
       - name: Measure compile
         run: bash scripts/measure-step.sh "$METRICS_DIR/compile.metrics" go test -run '^$' ./...
       - name: Run vet
