@@ -35,6 +35,14 @@ both before and after integer vectors are present, the identities match, and
 the scenario itself is CLOSED. Missing pairs or identity mismatches remain
 UNKNOWN.
 
+CI measurement coverage is structural and separate from semantic decisions.
+The receipt stores exactly ten integer fields: wall time and peak RSS for
+compile, build, test, conformance, and integration. Fixed-scenario test
+accounting is `total=8`, `selected=8`, `executed=8`, `reused=0`, `failed=0`,
+`unknown=0`; REFUTED and UNKNOWN scenario decisions are reported separately.
+The five local execution counters (`go_test`, `go_build`, `go_vet`,
+`conformance`, `integration`) are explicit zeroes and are not authority fields.
+
 ## Authority boundary
 
 `.gooo` owns stage declaration, origin binding, generated projection, lattice

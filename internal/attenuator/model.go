@@ -192,16 +192,47 @@ type CIMetrics struct {
 	PeakRSSKiB int `json:"peak_rss_kib"`
 }
 
+type MeasurementMetrics struct {
+	CompileWallMS         int `json:"compile_wall_ms"`
+	CompilePeakRSSKiB     int `json:"compile_peak_rss_kib"`
+	BuildWallMS           int `json:"build_wall_ms"`
+	BuildPeakRSSKiB       int `json:"build_peak_rss_kib"`
+	TestWallMS            int `json:"test_wall_ms"`
+	TestPeakRSSKiB        int `json:"test_peak_rss_kib"`
+	ConformanceWallMS     int `json:"conformance_wall_ms"`
+	ConformancePeakRSSKiB int `json:"conformance_peak_rss_kib"`
+	IntegrationWallMS     int `json:"integration_wall_ms"`
+	IntegrationPeakRSSKiB int `json:"integration_peak_rss_kib"`
+}
+
 type Metrics struct {
-	CapabilityKinds        int       `json:"capability_kinds"`
-	StageEdges             int       `json:"stage_edges"`
-	DeclaredCapabilities   int       `json:"declared_capabilities"`
-	ObservedCapabilities   int       `json:"observed_capabilities"`
-	PreservedCapabilities  int       `json:"preserved_capabilities"`
-	AmplifiedCapabilities  int       `json:"amplified_capabilities"`
-	AttenuatedCapabilities int       `json:"attenuated_capabilities"`
-	Inventory              Inventory `json:"inventory"`
-	CI                     CIMetrics `json:"ci"`
+	CapabilityKinds        int                `json:"capability_kinds"`
+	StageEdges             int                `json:"stage_edges"`
+	DeclaredCapabilities   int                `json:"declared_capabilities"`
+	ObservedCapabilities   int                `json:"observed_capabilities"`
+	PreservedCapabilities  int                `json:"preserved_capabilities"`
+	AmplifiedCapabilities  int                `json:"amplified_capabilities"`
+	AttenuatedCapabilities int                `json:"attenuated_capabilities"`
+	Inventory              Inventory          `json:"inventory"`
+	CI                     CIMetrics          `json:"ci"`
+	Measurements           MeasurementMetrics `json:"measurements"`
+}
+
+type TestSummary struct {
+	Total    int `json:"total"`
+	Selected int `json:"selected"`
+	Executed int `json:"executed"`
+	Reused   int `json:"reused"`
+	Failed   int `json:"failed"`
+	Unknown  int `json:"unknown"`
+}
+
+type LocalExecution struct {
+	GoTest      int `json:"go_test"`
+	GoBuild     int `json:"go_build"`
+	GoVet       int `json:"go_vet"`
+	Conformance int `json:"conformance"`
+	Integration int `json:"integration"`
 }
 
 type Authority struct {
@@ -228,7 +259,9 @@ type AttenuationReceipt struct {
 	Summary            Summary            `json:"summary"`
 	Scenarios          []ScenarioResult   `json:"scenarios"`
 	Improvement        ImprovementSummary `json:"improvement"`
+	Tests              TestSummary        `json:"tests"`
 	Metrics            Metrics            `json:"metrics"`
 	Authority          Authority          `json:"authority"`
+	LocalExecution     LocalExecution     `json:"local_execution"`
 	Artifacts          ArtifactManifest   `json:"artifacts"`
 }

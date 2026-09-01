@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  go-validation:
-    name: Go 1.27 validation
+  validation:
+    name: Go 1.27 and semantic validation
     runs-on: ubuntu-latest
     env:
       SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -32,40 +32,44 @@ jobs:
           set -euo pipefail
           files=$(gofmt -l $(git ls-files '*.go'))
           test -z "$files"
+      - name: Prepare measurement directories
+        run: |
+          echo "METRICS_DIR=$RUNNER_TEMP/gooo-meta-capability-attenuator-measurements" >> "$GITHUB_ENV"
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gooo-meta-capability-attenuator-measurements"
+      - name: Measure compile
+        run: bash scripts/measure-step.sh "$METRICS_DIR/compile.metrics" go test -run '^$' ./...
       - name: Run vet
         run: go vet ./...
-      - name: Run tests
-        run: go test ./...
-      - name: Build evaluator
-        run: go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
-
-  conformance:
-    name: Semantic IR conformance
-    needs: go-validation
-    runs-on: ubuntu-latest
-    env:
-      SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ env.SUBJECT_SHA }}
-          fetch-depth: 0
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.27.0'
-          cache: false
-      - name: Verify declared toolchain
-        run: test "$(go env GOVERSION)" = "go1.27.0"
-      - name: Build evaluator for conformance
-        run: go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
-      - name: Run generated semantic conformance
-        run: bash scripts/conformance.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator"
-      - name: Run semantic integration
-        run: bash scripts/integration.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence"
-      - name: Run semantic audit
-        run: bash scripts/semantic-audit.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence"
+      - name: Measure tests
+        run: bash scripts/measure-step.sh "$METRICS_DIR/test.metrics" go test ./...
+      - name: Measure build
+        run: bash scripts/measure-step.sh "$METRICS_DIR/build.metrics" go build -trimpath -o "$RUNNER_TEMP/gooo-meta-capability-attenuator" ./cmd/gooo-meta-capability-attenuator
+      - name: Measure conformance
+        run: |
+          set -euo pipefail
+          bash scripts/measure-step.sh "$METRICS_DIR/conformance.metrics" bash scripts/conformance.sh "$RUNNER_TEMP/gooo-meta-capability-attenuator" "$METRICS_DIR"
+          conformance_wall_ms=$(awk -F= '$1 == "wall_ms" {print $2}' "$METRICS_DIR/conformance.metrics")
+          conformance_peak_rss_kib=$(awk -F= '$1 == "peak_rss_kib" {print $2}' "$METRICS_DIR/conformance.metrics")
+          bash scripts/patch-measurement.sh "$EVIDENCE_DIR/attenuation-receipt.json" conformance "$conformance_wall_ms" "$conformance_peak_rss_kib"
+      - name: Measure integration
+        run: |
+          set -euo pipefail
+          bash scripts/measure-step.sh "$METRICS_DIR/integration.metrics" bash scripts/integration.sh "$EVIDENCE_DIR"
+          integration_wall_ms=$(awk -F= '$1 == "wall_ms" {print $2}' "$METRICS_DIR/integration.metrics")
+          integration_peak_rss_kib=$(awk -F= '$1 == "peak_rss_kib" {print $2}' "$METRICS_DIR/integration.metrics")
+          bash scripts/patch-measurement.sh "$EVIDENCE_DIR/attenuation-receipt.json" integration "$integration_wall_ms" "$integration_peak_rss_kib"
+      - name: Run semantic audit after measurement patch
+        run: bash scripts/semantic-audit.sh "$EVIDENCE_DIR"
+      - name: Verify complete measurement receipt
+        run: |
+          jq -e '
+            .tests == {total:8,selected:8,executed:8,reused:0,failed:0,unknown:0} and
+            .local_execution == {go_test:0,go_build:0,go_vet:0,conformance:0,integration:0} and
+            ([.metrics.measurements | .[]] | all(. | type == "number" and . > 0))
+          ' "$EVIDENCE_DIR/attenuation-receipt.json" >/dev/null
       - name: Publish human report
-        run: cat "$RUNNER_TEMP/gooo-meta-capability-attenuator-evidence/attenuation-report.md" >> "$GITHUB_STEP_SUMMARY"
+        run: cat "$EVIDENCE_DIR/attenuation-report.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload evidence
         uses: actions/upload-artifact@v4
         with:

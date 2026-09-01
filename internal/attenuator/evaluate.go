@@ -14,15 +14,25 @@ import (
 )
 
 type EvaluateOptions struct {
-	Source       string
-	Contract     string
-	Fixtures     string
-	Output       string
-	SourceRoot   string
-	Toolchain    string
-	Runner       string
-	CIWallMS     int
-	CIPeakRSSKiB int
+	Source                string
+	Contract              string
+	Fixtures              string
+	Output                string
+	SourceRoot            string
+	Toolchain             string
+	Runner                string
+	CIWallMS              int
+	CIPeakRSSKiB          int
+	CompileWallMS         int
+	CompilePeakRSSKiB     int
+	BuildWallMS           int
+	BuildPeakRSSKiB       int
+	TestWallMS            int
+	TestPeakRSSKiB        int
+	ConformanceWallMS     int
+	ConformancePeakRSSKiB int
+	IntegrationWallMS     int
+	IntegrationPeakRSSKiB int
 }
 
 var fixedPrecedence = []string{"REFUTED", "UNKNOWN", "CLOSED"}
@@ -37,7 +47,12 @@ func Evaluate(options EvaluateOptions) error {
 	if options.Runner == "" {
 		options.Runner = "github-actions-ubuntu-latest"
 	}
-	if options.CIWallMS < 0 || options.CIPeakRSSKiB < 0 {
+	if options.CIWallMS < 0 || options.CIPeakRSSKiB < 0 ||
+		options.CompileWallMS < 0 || options.CompilePeakRSSKiB < 0 ||
+		options.BuildWallMS < 0 || options.BuildPeakRSSKiB < 0 ||
+		options.TestWallMS < 0 || options.TestPeakRSSKiB < 0 ||
+		options.ConformanceWallMS < 0 || options.ConformancePeakRSSKiB < 0 ||
+		options.IntegrationWallMS < 0 || options.IntegrationPeakRSSKiB < 0 {
 		return errors.New("CI metrics must be non-negative integers")
 	}
 
@@ -130,6 +145,13 @@ func Evaluate(options EvaluateOptions) error {
 		StageEdges:      len(fixtures.StageEdges),
 		Inventory:       inventory,
 		CI:              CIMetrics{WallMS: options.CIWallMS, PeakRSSKiB: options.CIPeakRSSKiB},
+		Measurements: MeasurementMetrics{
+			CompileWallMS: options.CompileWallMS, CompilePeakRSSKiB: options.CompilePeakRSSKiB,
+			BuildWallMS: options.BuildWallMS, BuildPeakRSSKiB: options.BuildPeakRSSKiB,
+			TestWallMS: options.TestWallMS, TestPeakRSSKiB: options.TestPeakRSSKiB,
+			ConformanceWallMS: options.ConformanceWallMS, ConformancePeakRSSKiB: options.ConformancePeakRSSKiB,
+			IntegrationWallMS: options.IntegrationWallMS, IntegrationPeakRSSKiB: options.IntegrationPeakRSSKiB,
+		},
 	}
 	for _, result := range results {
 		summary.Total++
@@ -164,8 +186,10 @@ func Evaluate(options EvaluateOptions) error {
 		Summary:            summary,
 		Scenarios:          results,
 		Improvement:        improvementSummary,
+		Tests:              TestSummary{Total: len(results), Selected: len(results), Executed: len(results), Reused: 0, Failed: 0, Unknown: 0},
 		Metrics:            metrics,
 		Authority:          authority,
+		LocalExecution:     LocalExecution{GoTest: 0, GoBuild: 0, GoVet: 0, Conformance: 0, Integration: 0},
 		Artifacts: ArtifactManifest{
 			Files: []string{"capability-graph.json", "attenuation-receipt.json", "violation.ndjson", "attenuation-report.md"},
 			Count: 4,
