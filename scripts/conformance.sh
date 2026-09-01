@@ -82,7 +82,7 @@ jq -e '
 ' "$work/first/attenuation-receipt.json"
 
 jq -e '.schema == "gooo/meta-capability-attenuator/capability-graph/v1" and .capability_kinds == ["read:source","read:reflection","write:caller-owned-output","network:outbound","write:repository"] and (.stage_edges | length) == 8 and (.scenarios | length) == 8' "$work/first/capability-graph.json" >/dev/null
-jq -e 'all(.[]; .state == "REFUTED" or .state == "UNKNOWN")' <(jq -s 'map(fromjson)' "$work/first/violation.ndjson") >/dev/null
+jq -e 'all(.[]; .state == "REFUTED" or .state == "UNKNOWN")' <(jq -s '.' "$work/first/violation.ndjson") >/dev/null
 
 for artifact in capability-graph.json attenuation-receipt.json violation.ndjson attenuation-report.md; do
   cmp -s "$work/first/$artifact" "$work/second/$artifact"
